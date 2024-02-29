@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Socket } from 'ngx-socket-io';
+import { Lugar } from '../interfaces/interfaces';
 
 @Injectable({
   providedIn: 'root'
@@ -38,6 +39,15 @@ export class WebsocketService {
   //escuchar eventos
   listen(evento: string) {
     return this.socket.fromEvent(evento);
+  }
+
+
+  listen1(evento: string) {
+    return this.socket.fromEvent<Lugar>(evento);
+  }
+
+  listenX(evento: string) {
+    return this.socket.fromEvent<any>(evento);
   }
 
 

@@ -1,6 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { Lugar } from '../../interfaces/interfaces';
 import * as mapboxgl from 'mapbox-gl';
+import { HttpClient } from '@angular/common/http';
+import { WebsocketService } from '../../services/websocket.service';
+
+
+interface RespMarcadores {
+  [key: string]: Lugar
+}
+
 
 @Component({
   selector: 'app-mapa',
@@ -10,33 +18,47 @@ import * as mapboxgl from 'mapbox-gl';
 export class MapaComponent implements OnInit {
 
   mapa?: mapboxgl.Map;
+  //lugares: Lugar[] = [];
+  lugares: RespMarcadores = {};
+  markersMapbox: { [id: string]: mapboxgl.Marker } = {}
 
 
-  lugares: Lugar[] = [{
-    id: '1',
-    nombre: 'Fernando',
-    lng: -75.75512993582937,
-    lat: 45.349977429009954,
-    color: '#dd8fee'
-  },
-  {
-    id: '2',
-    nombre: 'Amy',
-    lng: -75.75195645527508,
-    lat: 45.351584045823756,
-    color: '#790af0'
-  },
-  {
-    id: '3',
-    nombre: 'Orlando',
-    lng: -75.75900589557777,
-    lat: 45.34794635758547,
-    color: '#19884b'
-  }];
+  constructor(private http: HttpClient, private wsService: WebsocketService) { }
 
 
   ngOnInit() {
-    this.crearMapa();
+    this.http.get<RespMarcadores>('http://localhost:5000/mapa').subscribe(lugares => {
+      //console.log(lugares);
+      this.lugares = lugares;
+      this.crearMapa();
+    });
+
+    this.escucharSockets();
+
+  }
+
+  escucharSockets() {
+    //marcador-nuevo
+    this.wsService.listen1('marcador-nuevo')
+      .subscribe((marcador: Lugar) => {
+        console.log('Socket');
+        console.log(marcador);
+        this.agregarMarcador(marcador);
+      });
+
+    //marcador-mover
+    this.wsService.listen1('marcador-mover')
+      .subscribe((marcador: Lugar) => {
+        this.markersMapbox[marcador.id].setLngLat([marcador.lng, marcador.lat]);
+      });
+
+
+    //marcador-borrar
+    this.wsService.listenX('marcador-borrar').subscribe((id: string) => {
+      this.markersMapbox[id].remove();
+      delete this.markersMapbox[id];
+    });
+
   }
 
 
@@ -52,7 +74,8 @@ export class MapaComponent implements OnInit {
       zoom: 15.8
     });
 
-    for (const marcador of this.lugares) {
+    for (const [key, marcador] of Object.entries(this.lugares)) {
+      //console.log(key, marcador);
       this.agregarMarcador(marcador);
     }
 
@@ -72,7 +95,6 @@ export class MapaComponent implements OnInit {
     div.append(h2, btnBorrar);
 
 
-
     const customPopup = new mapboxgl.Popup({
       offset: 25,
       closeOnClick: false
@@ -88,17 +110,27 @@ export class MapaComponent implements OnInit {
 
     marker.on('drag', () => {
       const lngLat = marker.getLngLat();
-      console.log(lngLat);
+      // console.log(lngLat);
 
-      //TODO: Crear evento para emitir las coordenadas de este marcador
+      const nuevoMarcador = {
+        id: marcador.id,
+        lng: lngLat.lng,
+        lat: lngLat.lat
+      }
 
+      this.wsService.emit('marcador-mover', nuevoMarcador);
 
     });
 
     btnBorrar.addEventListener('click', () => {
       marker.remove();
-      //TODO: Eliminar el marcador mediante sockets
-    })
+
+      this.wsService.emit('marcador-borrar', marcador.id)
+    });
+
+    this.markersMapbox[marcador.id] = marker;
+    //console.log(this.markersMapbox);
+
 
   }
 
@@ -113,6 +145,9 @@ export class MapaComponent implements OnInit {
       color: '#' + Math.floor(Math.random() * 16777215).toString(16)
     }
     this.agregarMarcador(customMoarker);
+    //emitir marcardor-nuevo
+    this.wsService.emit('marcador-nuevo', customMoarker);
+
   }
 
 }

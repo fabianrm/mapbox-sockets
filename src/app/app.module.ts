@@ -1,11 +1,13 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { SocketIoConfig, SocketIoModule } from 'ngx-socket-io';
+import { SocketIoModule } from 'ngx-socket-io';
+import { HttpClientModule } from '@angular/common/http';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { MapaComponent } from './components/mapa/mapa.component';
-const config: SocketIoConfig = { url: 'http://localhost:5000', options: {} };
+import { environment } from '../environments/environment';
+
 
 @NgModule({
   declarations: [
@@ -15,7 +17,8 @@ const config: SocketIoConfig = { url: 'http://localhost:5000', options: {} };
   imports: [
     BrowserModule,
     AppRoutingModule,
-    SocketIoModule.forRoot(config)
+    HttpClientModule,
+    SocketIoModule.forRoot(environment.socketConfig),
   ],
   providers: [],
   bootstrap: [AppComponent]
